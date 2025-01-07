@@ -54,7 +54,7 @@ Run the script with the following arguments:
 
 ## 🗣️ Arguments
 
-- `-org`: **(Required)** Organization name for reconnaissance. 🏢
+- `-org`: **(Required)** Organization name to find related root domains. 🏢
 - `-d`: **(Required)** Target domain for reconnaissance. 🌐
 - `-ip`: **(Optional)** IP range for scanning. 🔌
 - `-wordlist`: **(Optional)** Custom wordlist for `Feroxbuster`. 📜
