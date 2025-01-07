@@ -350,11 +350,11 @@ while read -r subdomain; do
     done
 
     # Subdomain-specific scans
-    run_nikto_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nikto.txt"
-    run_nuclei_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nuclei.txt"
-    run_wafw00f_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_wafw00f.txt"
     run_webanalyze_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_webanalyze.txt"
     run_whatweb_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_whatweb.txt"
+    run_wafw00f_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_wafw00f.txt"
+    run_nikto_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nikto.txt"
+    run_nuclei_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nuclei.txt"
 done < "$SUBDOMAINS_FILE"
 
 echo "Subdomain-specific and IP-based scanning completed."
