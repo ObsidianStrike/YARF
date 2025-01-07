@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#set -x #uncomment to debug
+#set -x
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -33,12 +33,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Validate required arguments
-if [ -z "$ORG_NAME" ] || [ -z "$DOMAIN" ]; then
-    echo "Usage: $0 -org <organization_name> -d <domain> [-ip <ip_range>] [-wordlist <path>]"
+# Validate required arguments early
+if [[ -z "$ORG_NAME" || -z "$DOMAIN" ]]; then
+    printf "Error: Missing required arguments.\nUsage: $0 -org <organization_name> -d <domain> [-ip <ip_range>] [-wordlist <path>]\n" >&2
     exit 1
 fi
 
+# Check for required tools
+required_tools=(dig amass gospider nmap hakrawler katana feroxbuster wafw00f webanalyze whatweb)
+for tool in "${required_tools[@]}"; do
+    if ! command -v "$tool" &>/dev/null; then
+        printf "Error: Required tool '%s' not found in PATH.\n" "$tool" >&2
+        exit 1
+    fi
+done
 
 # Display ASCII Art
 cat << "EOF"
@@ -74,13 +82,11 @@ EXTENSIONS="php,html,js,txt,bak,backup,old"
 
 echo "BASE_DIR set to $BASE_DIR"
 
+
 # Create Directory Structure
 echo "Creating directory structure..."
-mkdir -p "$BASE_DIR"/{00_domain_and_subdomain_enumeration,01_spidering_and_brute_forcing_endpoints,02_server_side_scans,03_tech_stack_fingerprinting_and_vuln_scans,04_vuln_validation_and_exploitation}
-
-# Sub-directories
 AMASS_OUTPUT_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/00_amass"
-NSLOOKUP_OUTPUT_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/01_nslookup"
+DIG_OUTPUT_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/01_dig"
 ACTIVE_RECON_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/02_active_recon"
 ASN_ANALYSIS_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/03_asn_analysis"
 SUBFINDER_OUTPUT_DIR="$BASE_DIR/00_domain_and_subdomain_enumeration/04_subfinder"
@@ -92,7 +98,17 @@ SMAP_OUTPUT_DIR="$SERVER_SIDE_DIR/smap_scanner"
 NMAP_OUTPUT_DIR="$SERVER_SIDE_DIR/nmap_scanner"
 TECH_STACK_DIR="$BASE_DIR/03_tech_stack_fingerprinting_and_vuln_scans"
 
-mkdir -p "$AMASS_OUTPUT_DIR" "$NSLOOKUP_OUTPUT_DIR" "$ACTIVE_RECON_DIR" "$ASN_ANALYSIS_DIR" "$SUBFINDER_OUTPUT_DIR" "$BRUTE_OUTPUT_DIR" "$COMBINED_RESULTS_DIR" "$SMAP_OUTPUT_DIR" "$NMAP_OUTPUT_DIR" "$TECH_STACK_DIR"
+mkdir -p "$AMASS_OUTPUT_DIR" \
+         "$DIG_OUTPUT_DIR" \
+         "$ACTIVE_RECON_DIR" \
+         "$ASN_ANALYSIS_DIR" \
+         "$SUBFINDER_OUTPUT_DIR" \
+         "$BRUTE_OUTPUT_DIR" \
+         "$COMBINED_RESULTS_DIR" \
+         "$SMAP_OUTPUT_DIR" \
+         "$NMAP_OUTPUT_DIR" \
+         "$TECH_STACK_DIR"
+
 echo "Directory structure created."
 
 # Environment Variables for Pentest
@@ -103,10 +119,18 @@ export IP_RANGE="$IP_RANGE"
 echo "Environment variables set."
 
 # Reverse DNS Lookup
-echo "Running reverse DNS lookup using nslookup..."
-nslookup "$DOMAIN" | tee "$NSLOOKUP_OUTPUT_DIR/nslookup_output.txt" || {
-  echo "Error: nslookup failed. Please verify the domain name."; exit 1;
-}
+#echo "Running reverse DNS lookup using nslookup..."
+#nslookup "$DOMAIN" | tee "$NSLOOKUP_OUTPUT_DIR/nslookup_output.txt" || {
+#  echo "Error: nslookup failed. Please verify the domain name."; exit 1;
+#}
+#echo "Reverse DNS lookup completed."
+
+# Reverse DNS Lookup
+echo "Running reverse DNS lookup using dig..."
+if ! dig ANY "$DOMAIN" +noall +answer | tee "$DIG_OUTPUT_DIR/dig_output.txt"; then
+  echo "Error: dig command failed. Please verify the domain name."
+  exit 1
+fi
 echo "Reverse DNS lookup completed."
 
 # Active Reconnaissance: Amass
@@ -192,22 +216,22 @@ while read -r URL; do
 done < "$COMBINED_RESULTS_DIR/combined_amass_and_subfinder_with_http_prefix.txt"
 echo "Feroxbuster scanning completed."
 
-# Server-side Scanning: smap-scanner
+# Defining Server-side scanning functions
+
+# Smap-scanner
 run_smap_scan() {
     local domain="$1"
     local output_dir="$2"
 
     echo "Running smap-scanner for $domain..."
     if ! smap-scanner "$domain" -oA "$output_dir/smap"; then
-        echo "Error: smap-scanner failed for $domain. Please verify the domain and try again."
-        echo "Attempting fallback with nmap..."
-        nmap -v -Pn -T3 -p- --open --min-rate=1000 -A -oA "$output_dir/nmap_fallback" "$domain"
-        return 1
+        echo "Warning: smap-scanner failed for $domain. Skipping smap-scanner results and continuing."
     fi
+
     echo "smap-scanner completed. Results saved in $output_dir"
 }
 
-# Server-side Scanning: nmap
+# Nmap
 run_nmap_scan() {
     local domain="$1"
     local output_dir="$2"
@@ -220,19 +244,8 @@ run_nmap_scan() {
     echo "nmap scan completed. Results saved in $output_dir"
 }
 
-# Execute smap-scanner
-run_smap_scan "$DOMAIN" "$SMAP_OUTPUT_DIR" || {
-    echo "smap-scanner failed. Skipping further actions for smap-scanner."
-}
 
-# Execute nmap scan
-run_nmap_scan "$DOMAIN" "$NMAP_OUTPUT_DIR" || {
-    echo "nmap scan failed. Skipping further actions for nmap."
-}
-
-echo "Running tech stack fingerprinting and vulnerability scanning..."
-
-# Tech Stack Fingerprinting and Vulnerability Scanning
+# Defining Tech Stack Fingerprinting and Vulnerability Scanning functions
 run_nikto_scan() {
     local domain="$1"
     local output_file="$2"
@@ -293,12 +306,55 @@ run_whatweb_scan() {
     echo "WhatWeb scan completed. Results saved in $output_file"
 }
 
-# Execute Scans
-run_nikto_scan "$DOMAIN" "$TECH_STACK_DIR/nikto.txt"
-run_nuclei_scan "$DOMAIN" "$TECH_STACK_DIR/nuclei.txt"
-run_wafw00f_scan "$DOMAIN" "$TECH_STACK_DIR/wafw00f.txt"
-run_webanalyze_scan "$DOMAIN" "$TECH_STACK_DIR/webanalyze.txt"
-run_whatweb_scan "$DOMAIN" "$TECH_STACK_DIR/whatweb.txt"
-echo "Tech stack fingerprinting and vulnerability scanning completed."
+# Executing scans
 
-echo "Pentesting directory and scans are completed. Results stored in $BASE_DIR."
+# Extract unique subdomains from the combined subdomains list
+SUBDOMAINS_FILE="$COMBINED_RESULTS_DIR/combined_amass_and_subfinder.txt"
+RESOLVED_IPS_FILE="$TECH_STACK_DIR/resolved_ips.txt"
+: > "$RESOLVED_IPS_FILE" # Empty file to store resolved IPs
+
+# Check if the subdomain file exists and is non-empty.
+if [[ ! -s "$SUBDOMAINS_FILE" ]]; then
+    echo "Warning: No subdomains found in $SUBDOMAINS_FILE. Skipping subdomain-based scans."
+    # You can exit the script here if these scans are core, or just continue to skip further subdomain scans:
+    exit 0
+fi
+
+while read -r subdomain; do
+    # Use process substitution to capture all IPv4 addresses
+    mapfile -t ips < <( dig +short "$subdomain" | grep -Eo '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' )
+
+    # If none found, skip
+    if [[ ${#ips[@]} -eq 0 ]]; then
+        printf "Warning: Could not resolve any IP addresses for %s\n" "$subdomain" >&2
+        continue
+    fi
+
+    # For each IP, check if it’s already scanned, if not scan it
+    for ip in "${ips[@]}"; do
+        if ! grep -q "^$ip$" "$RESOLVED_IPS_FILE"; then
+            printf "New IP resolved: %s for subdomain %s\n" "$ip" "$subdomain"
+            echo "$ip" >> "$RESOLVED_IPS_FILE"
+
+            # IP-level scans
+            if ! run_smap_scan "$ip" "$SMAP_OUTPUT_DIR"; then
+                printf "Warning: smap scan failed for IP %s (subdomain: %s). Skipping to next IP.\n" "$ip" "$subdomain" >&2
+            fi
+
+            if ! run_nmap_scan "$ip" "$NMAP_OUTPUT_DIR"; then
+                printf "Warning: nmap scan failed for IP %s (subdomain: %s). Skipping to next IP.\n" "$ip" "$subdomain" >&2
+            fi
+        else
+            printf "IP %s already scanned. Skipping IP-level scans for subdomain %s.\n" "$ip" "$subdomain"
+        fi
+    done
+
+    # Subdomain-specific scans
+    run_nikto_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nikto.txt"
+    run_nuclei_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_nuclei.txt"
+    run_wafw00f_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_wafw00f.txt"
+    run_webanalyze_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_webanalyze.txt"
+    run_whatweb_scan "$subdomain" "$TECH_STACK_DIR/${subdomain}_whatweb.txt"
+done < "$SUBDOMAINS_FILE"
+
+echo "Subdomain-specific and IP-based scanning completed."
