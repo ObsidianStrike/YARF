@@ -7,7 +7,7 @@
 ## ⚡ Features
 
 - **Automated Directory Setup** 📂: Creates a structured directory for storing recon data.
-- **Root Domain Enumeration** 🌍: Leverages Whois and ASN data via `Amass`.
+- **Root Domain Enumeration** 🌐: Leverages Whois and ASN data via `Amass`.
 - **Subdomain Enumeration** 🔍: Uses tools like `Amass` and `Subfinder`.
 - **Spidering** 🕸️: Crawls targets with `Gospider`, `Hakrawler`, and `Katana`.
 - **Dirbusting** 🛠️: Uses `Feroxbuster` with customizable wordlists.
@@ -22,6 +22,7 @@
 
 Ensure the following tools are installed and available in your `$PATH`:
 
+- `dig` 🪏
 - `amass` 🌍
 - `subfinder` 🔍
 - `gospider` 🕷️
