@@ -10,7 +10,7 @@
 - **Root Domain Enumeration** 🌐: Leverages Whois and ASN data via `Amass`.
 - **Subdomain Enumeration** 🔍: Uses tools like `Amass` and `Subfinder`.
 - **Spidering** 🕸️: Crawls targets with `Gospider`, `Hakrawler`, and `Katana`.
-- **Dirbusting** 🛠️: Uses `Feroxbuster` with customizable wordlists.
+- **Dirbusting** 💥: Uses `Feroxbuster` with customizable wordlists.
 - **Shodan Querying** 🛰️: Queries Shodan without an API key using `smap-scanner`.
 - **Service Scanning** 🔌: Performs comprehensive scans with `nmap`.
 - **Tech Stack Fingerprinting** 🫆: Utilizes `WAFW00F`, `Webanalyze`, and `WhatWeb`.
@@ -28,7 +28,7 @@ Ensure the following tools are installed and available in your `$PATH`:
 - `gospider` 🕷️
 - `hakrawler` 🧭
 - `katana` 🗡️
-- `feroxbuster` 🛠️
+- `feroxbuster` 💥
 - `smap-scanner` 🛰️
 - `nmap` 🎯
 - `nikto` 🚨
